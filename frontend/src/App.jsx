@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, MapPin, Star, CreditCard, ChevronRight, Loader2, Sparkles, SlidersHorizontal } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import './App.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -13,7 +13,7 @@ function App() {
     cuisines: '',
     min_rating: 4.0,
     budget_min: 0,
-    budget_max: 5000
+    budget_max: 500
   });
 
   const [loading, setLoading] = useState(false);
@@ -24,26 +24,65 @@ function App() {
     meta: { total_candidates: 0, returned: 0 }
   });
 
-  const [metaOptions, setMetaOptions] = useState({ locations: [], cuisines: [] });
+  const [hasSearched, setHasSearched] = useState(false);
+  const [metaOptions, setMetaOptions] = useState({
+    locations: [],
+    cuisines_by_location: {}
+  });
 
+  const [dynamicCuisines, setDynamicCuisines] = useState([]);
+
+  // Fetch metadata once
   useEffect(() => {
-    // Attempt to load metadata for dropdowns if available
     const fetchMeta = async () => {
       try {
         const response = await axios.get(META_ENDPOINT);
-        setMetaOptions(response.data);
+        const meta = response.data;
+
+        setMetaOptions(meta);
+
+        if (meta.locations?.length > 0) {
+          const firstLoc = meta.locations[0];
+
+          setFormData(prev => ({
+            ...prev,
+            location: firstLoc
+          }));
+
+          setDynamicCuisines(
+            meta.cuisines_by_location[firstLoc] || []
+          );
+        }
       } catch (err) {
         console.warn('Metadata service unavailable');
       }
     };
+
     fetchMeta();
   }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === 'location') {
+      setFormData(prev => ({
+        ...prev,
+        location: value,
+        cuisines: ''
+      }));
+
+      setDynamicCuisines(
+        metaOptions.cuisines_by_location[value] || []
+      );
+
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
-      [name]: (name.includes('budget') || name === 'min_rating') ? parseFloat(value) || 0 : value
+      [name]: (name.includes('budget') || name === 'min_rating')
+        ? parseFloat(value) || 0
+        : value
     }));
   };
 
@@ -59,7 +98,7 @@ function App() {
 
     try {
       const cuisinesArray = formData.cuisines
-        ? formData.cuisines.split(',').map(c => c.trim()).filter(c => c !== '')
+        ? [formData.cuisines]
         : [];
 
       const payload = {
@@ -74,9 +113,11 @@ function App() {
 
       const response = await axios.post(API_ENDPOINT, payload);
       setData(response.data);
+      setHasSearched(true); 
     } catch (err) {
       console.error('API Error:', err);
-      setError('Failed to fetch recommendations. Please check if the backend is running.');
+      setError('Failed to fetch recommendations.');
+      setHasSearched(true);
     } finally {
       setLoading(false);
     }
@@ -95,7 +136,8 @@ function App() {
           handleChange={handleChange}
           handleSubmit={handleSubmit}
           loading={loading}
-          metaOptions={metaOptions}
+          locations={metaOptions.locations}
+          dynamicCuisines={dynamicCuisines}
         />
       </section>
 
@@ -130,28 +172,37 @@ function App() {
         </>
       )}
 
-      {!loading && !error && data.restaurants.length === 0 && !data.summary && (
-        <div className="footer">
-          <p>© 2024 DineAI Recommendation Engine. All rights reserved.</p>
+      {!loading && !error && hasSearched && data.restaurants.length === 0 && (
+        <div className="no-results">
+          {formData.cuisines ? (
+            <p>No {formData.cuisines} restaurants found in {formData.location}. Try another cuisine or adjust filters.</p>
+          ) : (
+            <p>No restaurants found in {formData.location}. Try lowering the rating filter.</p>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function SearchForm({ formData, handleChange, handleSubmit, loading, metaOptions }) {
+function SearchForm({ formData, handleChange, handleSubmit, loading, locations, dynamicCuisines }) {
   return (
     <form onSubmit={handleSubmit} className="preference-form">
       <div className="search-grid">
+
         <div className="input-group">
           <label>Location</label>
-          <input
-            type="text"
+          <select
             name="location"
             value={formData.location}
             onChange={handleChange}
-            placeholder="Search city or area..."
-          />
+            className="select-input"
+          >
+            <option value="">Select Location</option>
+            {locations.map(loc => (
+              <option key={loc} value={loc}>{loc}</option>
+            ))}
+          </select>
         </div>
 
         <div className="input-group">
@@ -169,24 +220,33 @@ function SearchForm({ formData, handleChange, handleSubmit, loading, metaOptions
 
         <div className="input-group">
           <label>Cuisine (Optional)</label>
-          <input
-            type="text"
+          <select
             name="cuisines"
             value={formData.cuisines}
             onChange={handleChange}
-            placeholder="e.g. Italian, Spicy, Vegan"
-          />
+            className="select-input"
+          >
+            <option value="">All Cuisines</option>
+            {dynamicCuisines.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
 
         <div className="input-group">
           <label>Budget (Optional)</label>
-          <select name="budget_max" onChange={handleChange} value={formData.budget_max}>
+          <select
+            name="budget_max"
+            value={formData.budget_max}
+            onChange={handleChange}
+          >
             <option value="500">Value (Under ₹500)</option>
             <option value="1500">Moderate (Under ₹1500)</option>
             <option value="3000">Mid-range (Under ₹3000)</option>
             <option value="10000">Premium (No Limit)</option>
           </select>
         </div>
+
       </div>
 
       <button type="submit" className="cta-button" disabled={loading}>
@@ -232,7 +292,7 @@ function RecommendationCard({ restaurant, rank }) {
         </div>
 
         <div className="cuisine-tags">
-          {restaurant.cuisines.map(c => (
+          {(restaurant.cuisines || []).map(c => (
             <span key={c} className="tag">{c}</span>
           ))}
         </div>

@@ -166,27 +166,32 @@ class GroqRanker:
             )
 
         system_msg = (
-            "You are ranking restaurants based on user preferences.\n\n"
-            "Prioritize:\n"
-            "  1. Strength of requested cuisine match.\n"
-            "  2. Rating quality.\n"
-            "  3. Popularity.\n"
-            "  4. Budget alignment.\n\n"
-            "Each explanation must:\n"
-            "  - Start with strongest cuisine relevance.\n"
-            "  - Mention one tradeoff if present.\n"
-            "  - Be under 18 words.\n"
-            "  - Avoid generic phrases.\n"
-            "  - Avoid repetition across restaurants.\n\n"
-            "Return strict JSON:\n"
-            "{\n"
-            '  "summary": "one sentence",\n'
-            '  "restaurants": [\n'
-            '    { "id": int, "rank": int, "score": float, "explanation": string }\n'
-            "  ]\n"
-            "}\n\n"
-            "Do not invent restaurants."
-        )
+             "You are ranking restaurants for a premium recommendation engine.\n\n"
+             "Balance the following factors:\n"
+             "1. Strength of requested cuisine match (primary but not absolute).\n"
+             "2. Overall rating quality.\n"
+             "3. Popularity (votes indicate trust).\n"
+             "4. Budget alignment with user range.\n\n"
+             "Avoid promoting restaurants where the requested cuisine is incidental.\n"
+             "Strong cuisine match means it is a core offering, not just one item.\n\n"
+             "Score must be a float between 0 and 1.\n"
+             "Higher score means better alignment with user preferences.\n\n"
+             "Each explanation must:\n"
+             "- Start with cuisine strength.\n"
+             "- Mention exactly one meaningful tradeoff.\n"
+             "- Be under 16 words.\n"
+             "- Avoid repetitive structure across restaurants.\n"
+             "- Avoid generic phrases like 'steady favorite' or 'niche spot'.\n\n"
+             "Tone should feel curated and intentional, not templated.\n\n"
+             "Return strict JSON:\n"
+             "{\n"
+             '  \"summary\": \"one sentence\",\n'
+             '  \"restaurants\": [\n'
+             '    { \"id\": int, \"rank\": int, \"score\": float, \"explanation\": string }\n'
+             "  ]\n"
+             "}\n\n"
+             "Do not invent restaurants."
+             )
 
         user_msg = {
             "user_preferences": user_prefs,

@@ -345,6 +345,18 @@ body {
   font-weight: 500;
 }
 
+.no-results {
+  text-align: center;
+  padding: 2.5rem;
+  background-color: var(--accent-soft);
+  border: 1px solid rgba(229, 57, 53, 0.2);
+  border-radius: var(--radius);
+  color: var(--accent-text);
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin-top: 2rem;
+}
+
 .footer {
   text-align: center;
   margin-top: 4rem;
