@@ -38,7 +38,7 @@ Each recommendation includes:
 	•	Summary insight
 
 
-Architecture**
+**Architecture**
 
 Frontend: React (Vite)
 Backend: FastAPI
