@@ -1,0 +1,18 @@
+# Python
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Frontend
+frontend/node_modules/
+
+# Dataset / HuggingFace cache
+data/raw/
+data/hf_home/
+data/processed/
+
+# OS
+.DS_Store
+
