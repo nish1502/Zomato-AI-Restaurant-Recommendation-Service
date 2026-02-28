@@ -149,41 +149,26 @@ def _normalize_dataframe(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def build_restaurants_index(
-    limit: Optional[int] = None, force_rebuild: bool = False
+    limit: Optional[int] = None,
+    force_rebuild: bool = False
 ) -> pl.DataFrame:
     """
-    Build (or reload) the normalized restaurants index as a Polars DataFrame.
-
-    - If a processed parquet file exists and `force_rebuild` is False, it is reused.
-    - Otherwise, the raw dataset is loaded from HuggingFace, normalized, and written.
-    - `limit` can be used to restrict the number of rows for testing purposes.
+    Production-safe loader.
+    Loads only the preprocessed parquet file.
+    No HuggingFace download in production.
     """
-    _ensure_directories()
     processed_path: Path = settings.PROCESSED_DATASET_PATH
 
-    if processed_path.exists() and not force_rebuild:
-        df = pl.read_parquet(processed_path)
-        if limit is not None:
-            return df.head(limit)
-        return df
+    if not processed_path.exists():
+        raise RuntimeError(
+            "Processed dataset not found. Generate locally before deployment."
+        )
 
-    raw_ds = load_raw_dataset()
-
-    # Optionally limit records for local testing.
-    if limit is not None:
-        raw_ds = raw_ds.select(range(limit))
-
-    # Convert to pandas then to polars for convenience.
-    pandas_df = raw_ds.to_pandas()
-    df = pl.from_pandas(pandas_df)
-
-    df = _normalize_dataframe(df)
-
-    processed_path.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(processed_path)
+    df = pl.read_parquet(processed_path)
 
     if limit is not None:
         return df.head(limit)
+
     return df
 
 
