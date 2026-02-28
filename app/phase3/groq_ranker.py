@@ -31,8 +31,8 @@ class LLMRecommendationResult:
 
 class GroqRanker:
     """
-    Thin wrapper around Groq's Chat Completions API for re-ranking candidates.
-    Falls back safely if anything fails.
+    Production-safe Groq Chat Completions wrapper.
+    Includes robust JSON parsing and graceful fallback.
     """
 
     def __init__(
@@ -79,7 +79,7 @@ class GroqRanker:
             "Content-Type": "application/json",
         }
 
-        # --- API Call ---
+        # ---------------- API CALL ----------------
         try:
             response = await self._client.post(
                 "/chat/completions",
@@ -96,7 +96,7 @@ class GroqRanker:
                 pass
             return None
 
-        # --- Robust Parsing ---
+        # ---------------- ROBUST PARSING ----------------
         try:
             data = response.json()
             content = data["choices"][0]["message"]["content"]
@@ -107,25 +107,33 @@ class GroqRanker:
 
             content = content.strip()
 
-            # Remove markdown code fences if present
-            if content.startswith("```"):
-                content = content.strip("`")
-                if content.startswith("json"):
-                    content = content[4:].strip()
+            # Attempt direct JSON parse first
+            try:
+                parsed = json.loads(content)
 
-            # Extract first JSON object
-            start = content.find("{")
-            end = content.rfind("}")
+            except Exception:
+                # If wrapped in markdown code fences
+                if "```" in content:
+                    parts = content.split("```")
+                    if len(parts) >= 2:
+                        content = parts[1].strip()
+                        if content.startswith("json"):
+                            content = content[4:].strip()
 
-            if start == -1 or end == -1:
-                logger.warning("Groq content does not contain valid JSON: %s", content)
-                return None
+                # Extract JSON object boundaries
+                start = content.find("{")
+                end = content.rfind("}")
 
-            json_str = content[start:end + 1]
-            parsed = json.loads(json_str)
+                if start == -1 or end == -1:
+                    logger.warning("Groq content does not contain valid JSON: %s", content)
+                    return None
 
-        except Exception as exc:
-            logger.warning("GroqRanker response parse failed. Raw content: %s", content)
+                json_str = content[start:end + 1]
+                parsed = json.loads(json_str)
+
+        except Exception:
+            logger.warning("GroqRanker response parse failed.")
+            logger.warning("Raw content: %s", content if 'content' in locals() else "N/A")
             return None
 
         return self._parse_result(parsed)
@@ -168,7 +176,7 @@ class GroqRanker:
             "  - Start with strongest cuisine relevance.\n"
             "  - Mention one tradeoff if present.\n"
             "  - Be under 18 words.\n"
-            "  - Avoid generic phrases like \"steady favorite\" or \"niche spot\".\n"
+            "  - Avoid generic phrases.\n"
             "  - Avoid repetition across restaurants.\n\n"
             "Return strict JSON:\n"
             "{\n"
@@ -191,10 +199,7 @@ class GroqRanker:
             "max_tokens": 600,
             "messages": [
                 {"role": "system", "content": system_msg},
-                {
-                    "role": "user",
-                    "content": json.dumps(user_msg),
-                },
+                {"role": "user", "content": json.dumps(user_msg)},
             ],
         }
 
@@ -232,6 +237,6 @@ class GroqRanker:
             return None
 
         return LLMRecommendationResult(
-            restaurants=items, 
-            summary=payload.get("summary")
+            restaurants=items,
+            summary=payload.get("summary"),
         )
