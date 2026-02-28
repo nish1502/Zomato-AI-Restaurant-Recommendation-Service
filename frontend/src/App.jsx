@@ -3,8 +3,9 @@ import axios from 'axios';
 import { Search, MapPin, Star, CreditCard, ChevronRight, Loader2, Sparkles, SlidersHorizontal } from 'lucide-react';
 import './App.css';
 
-const API_ENDPOINT = 'http://localhost:8000/api/v1/recommendations';
-const META_ENDPOINT = 'http://localhost:8000/api/v1/meta/filters';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_ENDPOINT = `${API_BASE_URL}/api/v1/recommendations`;
+const META_ENDPOINT = `${API_BASE_URL}/api/v1/meta/filters`;
 
 function App() {
   const [formData, setFormData] = useState({
